@@ -1,0 +1,1017 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard: Setup เพิ่มโปรแกรมตรวจฝา/ขวด — Heuft Inspection</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.5.1" integrity="sha384-jb8JQMbMoBUzgWatfe6COACi2ljcDdZQ2OxczGA3bGNeWe+6DChMTBJemed7ZnvJ" crossorigin="anonymous"></script>
+<style>
+:root {
+    --bg-primary: #f8f9fa;
+    --bg-card: #ffffff;
+    --bg-header: #1a1a2e;
+    --text-primary: #212529;
+    --text-secondary: #6c757d;
+    --text-on-dark: #ffffff;
+    --positive: #28a745;
+    --negative: #dc3545;
+    --neutral: #6c757d;
+    --gap: 16px;
+    --radius: 8px;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans Thai', 'Sarabun', Tahoma, Roboto, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    line-height: 1.5;
+}
+.dashboard-container { max-width: 1400px; margin: 0 auto; padding: var(--gap); }
+.dashboard-header {
+    background: var(--bg-header);
+    color: var(--text-on-dark);
+    padding: 20px 24px;
+    border-radius: var(--radius);
+    margin-bottom: var(--gap);
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 14px;
+}
+.dashboard-header h1 { font-size: 20px; font-weight: 600; }
+.dashboard-header .sub { font-size: 12px; color: rgba(255,255,255,0.65); margin-top: 2px; }
+.filters { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+.filter-group { display: flex; flex-direction: column; gap: 4px; }
+.filter-group label { font-size: 12px; color: rgba(255,255,255,0.7); }
+.filter-group select, .filter-group input[type="number"] {
+    padding: 6px 10px;
+    border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 4px;
+    background: rgba(255,255,255,0.1);
+    color: var(--text-on-dark);
+    font-size: 13px;
+    font-family: inherit;
+    min-width: 120px;
+}
+.filter-group input[type="number"] { width: 100px; min-width: 0; }
+.filter-group select option { background: var(--bg-header); color: var(--text-on-dark); }
+.btn {
+    padding: 7px 14px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.35);
+    background: transparent; color: var(--text-on-dark); font-size: 13px; cursor: pointer; font-family: inherit;
+}
+.btn:hover { background: rgba(255,255,255,0.12); }
+.kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--gap); margin-bottom: var(--gap); }
+.kpi-card { background: var(--bg-card); border-radius: var(--radius); padding: 18px 22px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.kpi-label { font-size: 12px; color: var(--text-secondary); letter-spacing: 0.3px; margin-bottom: 4px; }
+.kpi-value { font-size: 28px; font-weight: 700; color: var(--text-primary); margin-bottom: 2px; }
+.kpi-change { font-size: 12px; font-weight: 500; color: var(--text-secondary); }
+.kpi-change.positive { color: var(--positive); }
+.kpi-change.negative { color: var(--negative); }
+.chart-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(560px, 1fr)); gap: var(--gap); margin-bottom: var(--gap); }
+.chart-container { background: var(--bg-card); border-radius: var(--radius); padding: 20px 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+.chart-container.wide { grid-column: 1 / -1; }
+.chart-container h3 { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+.chart-container .note { font-size: 12px; color: var(--text-secondary); margin-bottom: 12px; }
+.chart-box { position: relative; height: 300px; }
+.chart-box.tall { height: 640px; }
+.empty-msg { display: none; padding: 40px 0; text-align: center; color: var(--text-secondary); font-size: 13px; }
+.table-section { background: var(--bg-card); border-radius: var(--radius); padding: 20px 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); overflow-x: auto; margin-bottom: var(--gap); }
+.table-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 8px; }
+.table-head h3 { font-size: 14px; font-weight: 600; }
+.table-head .count { font-size: 12px; color: var(--text-secondary); }
+.table-head .btn { color: var(--text-primary); border-color: #ced4da; }
+.table-head .btn:hover { background: #f1f3f5; }
+.data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.data-table thead th {
+    text-align: left; padding: 10px 12px; border-bottom: 2px solid #dee2e6; color: var(--text-secondary);
+    font-weight: 600; font-size: 12px; white-space: nowrap; user-select: none; cursor: pointer;
+}
+.data-table thead th:hover { color: var(--text-primary); background: #f8f9fa; }
+.data-table tbody td { padding: 9px 12px; border-bottom: 1px solid #f0f0f0; vertical-align: top; }
+.data-table tbody tr.main { cursor: pointer; }
+.data-table tbody tr.main:hover { background: #f8f9fa; }
+.data-table td.num, .data-table th.num { text-align: right; }
+.data-table td.ctr { text-align: center; }
+.chip { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; color: #fff; white-space: nowrap; }
+.yes { color: #c0392b; font-weight: 600; }
+.detail td { background: #f8f9fa; font-size: 12px; color: #343a40; padding: 10px 16px 12px 40px; }
+.detail dl { display: grid; grid-template-columns: 130px 1fr; gap: 4px 12px; }
+.detail dt { color: var(--text-secondary); }
+select.status { font-family: inherit; font-size: 12px; padding: 3px 6px; border-radius: 4px; border: 1px solid #ced4da; background: #fff; }
+select.status.Done { background: #d4edda; border-color: #9fd3ac; }
+select.status.In-progress { background: #fff3cd; border-color: #e6d28a; }
+select.status.NA { background: #e9ecef; }
+.dashboard-footer { font-size: 12px; color: var(--text-secondary); padding: 6px 4px 20px; }
+.dashboard-footer p { margin-bottom: 4px; }
+.banner { background: #fff3cd; border: 1px solid #e6d28a; color: #664d03; padding: 8px 12px; border-radius: var(--radius); font-size: 12px; margin-bottom: var(--gap); display: none; }
+@media (max-width: 768px) {
+    .dashboard-header { flex-direction: column; }
+    .kpi-row { grid-template-columns: repeat(2, 1fr); }
+    .chart-row { grid-template-columns: 1fr; }
+    .filters { flex-direction: column; align-items: flex-start; }
+    .chart-box.tall { height: 560px; }
+}
+@media print {
+    body { background: white; }
+    .dashboard-container { max-width: none; }
+    .filters, .btn { display: none; }
+    .chart-container { break-inside: avoid; }
+    .kpi-card { border: 1px solid #dee2e6; box-shadow: none; }
+}
+</style>
+</head>
+<body>
+<div class="dashboard-container">
+    <header class="dashboard-header">
+        <div>
+            <h1>Dashboard: Setup เพิ่มโปรแกรมตรวจฝา/ขวด — Heuft Inspection</h1>
+            <div class="sub">ติดตามแผนช่วงหยุดเครื่อง เวลา ผู้รับผิดชอบ และสถานะรายขั้นตอน (ข้อมูลจากชีต Procedure)</div>
+        </div>
+        <div class="filters">
+            <div class="filter-group"><label for="f-phase">Phase</label>
+                <select id="f-phase"><option value="all">ทุก Phase</option></select></div>
+            <div class="filter-group"><label for="f-owner">ผู้รับผิดชอบ</label>
+                <select id="f-owner"><option value="all">ทุกคน</option></select></div>
+            <div class="filter-group"><label for="f-dt">ช่วงเวลา</label>
+                <select id="f-dt">
+                    <option value="all">ทั้งหมด</option>
+                    <option value="yes">เฉพาะช่วงหยุดเครื่อง</option>
+                    <option value="no">นอกช่วงหยุดเครื่อง</option>
+                </select></div>
+            <div class="filter-group"><label for="f-status">Status</label>
+                <select id="f-status"><option value="all">ทุกสถานะ</option></select></div>
+            <div class="filter-group"><label for="f-base">Downtime ปัจจุบัน (ชม.)</label>
+                <input type="number" id="f-base" min="1" step="0.5" value="24"></div>
+            <button class="btn" id="btn-reset" type="button">ล้างตัวกรอง</button>
+        </div>
+    </header>
+
+    <div class="banner" id="chart-banner">โหลด Chart.js ไม่สำเร็จ (ต้องต่ออินเทอร์เน็ตเมื่อเปิดไฟล์ครั้งแรก) — ตัวเลข KPI และตารางยังใช้งานได้ แต่กราฟจะไม่แสดง</div>
+
+    <section class="kpi-row">
+        <div class="kpi-card"><div class="kpi-label">เวลาช่วงหยุดเครื่องตามแผน</div>
+            <div class="kpi-value" id="kpi-down">–</div><div class="kpi-change" id="kpi-down-sub"></div></div>
+        <div class="kpi-card"><div class="kpi-label">ความคืบหน้า (Done)</div>
+            <div class="kpi-value" id="kpi-prog">–</div><div class="kpi-change" id="kpi-prog-sub"></div></div>
+        <div class="kpi-card"><div class="kpi-label">งานที่ย้ายไปทำก่อนหยุดเครื่องได้</div>
+            <div class="kpi-value" id="kpi-mov">–</div><div class="kpi-change" id="kpi-mov-sub"></div></div>
+        <div class="kpi-card"><div class="kpi-label">ลดลงจาก Downtime ปัจจุบัน</div>
+            <div class="kpi-value" id="kpi-red">–</div><div class="kpi-change positive" id="kpi-red-sub"></div></div>
+    </section>
+
+    <section class="chart-row">
+        <div class="chart-container wide">
+            <h3>ลำดับงานช่วงหยุดเครื่อง (Gantt)</h3>
+            <div class="note">แถบแสดงเวลาเริ่ม–จบของแต่ละ Step ตามลำดับต่อเนื่อง (แกนเวลา = ชั่วโมงนับจากเริ่มหยุดเครื่อง) — ตัวกรองจะซ่อนแถบแต่ตำแหน่งเวลายังคงตามแผนเต็ม</div>
+            <div class="chart-box tall"><canvas id="ch-gantt"></canvas></div>
+            <div class="empty-msg" id="empty-gantt">ไม่มี Step ช่วงหยุดเครื่องที่ตรงกับตัวกรอง</div>
+        </div>
+        <div class="chart-container">
+            <h3>เวลาแยกตาม Phase (นาที)</h3>
+            <div class="note">แยกส่วนที่อยู่ในช่วงหยุดเครื่อง กับส่วนที่ทำนอกช่วงหยุดเครื่อง</div>
+            <div class="chart-box"><canvas id="ch-phase"></canvas></div>
+        </div>
+        <div class="chart-container">
+            <h3>เวลาของ Step ที่แต่ละบทบาทเกี่ยวข้อง (นาที)</h3>
+            <div class="note">Step ที่มีหลายคนร่วมกัน จะนับเวลาให้ทุกคนที่ร่วม (ผลรวมจึงเกินเวลารวมได้) — PD = Production, MT = Maintenance, ENG = Engineer, HS = Heuft Service</div>
+            <div class="chart-box"><canvas id="ch-owner"></canvas></div>
+        </div>
+        <div class="chart-container">
+            <h3>สถานะของ Step</h3>
+            <div class="note">เปลี่ยนสถานะได้ในตารางด้านล่าง กราฟและ KPI จะอัปเดตทันที</div>
+            <div class="chart-box"><canvas id="ch-status"></canvas></div>
+        </div>
+        <div class="chart-container">
+            <h3>สัดส่วนเวลาช่วงหยุดเครื่องตาม Phase</h3>
+            <div class="note">นับเฉพาะ Step ที่ต้องหยุดเครื่อง</div>
+            <div class="chart-box"><canvas id="ch-share"></canvas></div>
+        </div>
+    </section>
+
+    <section class="table-section">
+        <div class="table-head">
+            <div><h3>รายละเอียดทุก Step</h3><span class="count" id="tbl-count"></span></div>
+            <button class="btn" id="btn-csv" type="button">ดาวน์โหลดตารางที่กรอง (CSV)</button>
+        </div>
+        <div id="table-container"></div>
+    </section>
+
+    <footer class="dashboard-footer">
+        <p>ข้อมูล ณ วันที่: <span id="data-date"></span> — ดึงจากไฟล์ Heuft_Setup_Procedure.xlsx ชีต Procedure (36 Step) เวลาทั้งหมดเป็นค่าประมาณ ปรับตามหน้างานจริง</p>
+        <p>สถานะที่แก้ในหน้านี้เก็บไว้ชั่วคราวเท่านั้น จะหายเมื่อปิด/รีเฟรชหน้า — ใช้ปุ่ม CSV เพื่อเก็บสำเนา หรือแก้ Status ในไฟล์ Excel</p>
+        <p>วิธีอัปเดตข้อมูล: แก้อาร์เรย์ <code>DATA</code> ในส่วน &lt;script&gt; ด้านล่างของไฟล์นี้ (ฟิลด์ id, phase, activity, downtime, movable, owner, minutes, status ฯลฯ) แล้วเปิดไฟล์ใหม่</p>
+    </footer>
+</div>
+
+<script>
+const DATA = [
+ {
+  "id": "0.1",
+  "phase": "P0",
+  "activity": "ระบุ SKU และรวบรวม Spec",
+  "detail": "รวบรวมข้อมูลขวด (วัสดุ, ความสูง, เส้นผ่านศูนย์กลาง, คอขวด), ฝา (ชนิด, ขนาด, สี, Tamper band), ระดับน้ำเป้าหมาย และความเร็วไลน์ แล้วกรอกในชีต Parameters ส่วน A",
+  "downtime": false,
+  "movable": false,
+  "owner": "QA / ENG",
+  "minutes": 60,
+  "tools": "Spec/Drawing ขวด-ฝา, ใบ Spec สินค้า",
+  "record": "Parameters ส่วน A กรอกครบทุกช่อง",
+  "status": "Not started"
+ },
+ {
+  "id": "0.2",
+  "phase": "P0",
+  "activity": "ตรวจ Capability ของระบบ Heuft",
+  "detail": "ยืนยันรุ่น/Software version, Module และ License ที่มี (ตรวจฝา: presence / height / tamper, ตรวจขวด: fill level / contour) และชุดตรวจ/ไฟรองรับ SKU ใหม่หรือไม่ ถ้าไม่รองรับให้ประสาน Heuft Service ก่อนกำหนดวันหยุดเครื่อง",
+  "downtime": false,
+  "movable": false,
+  "owner": "ENG / MT",
+  "minutes": 60,
+  "tools": "Manual Heuft, ข้อมูล License/Option",
+  "record": "บันทึกรุ่น/Version ใน Parameters (A3) และผลประเมิน Capability",
+  "status": "Not started"
+ },
+ {
+  "id": "0.3",
+  "phase": "P0",
+  "activity": "เตรียมตัวอย่าง Good / Defect",
+  "detail": "Good: ขวด+ฝาจริงจากทุก lot/cavity ที่จะผลิต (แนะนำ ≥ 100 ชุดสำหรับทดสอบ False reject และ ≥ 30 ชุดสำหรับ Teach-in)\nDefect: ทำตัวอย่างตามรายการในชีต Challenge_Test (ฝาหาย/เอียง/สูง/ไม่มี Tamper band/ผิดสี, น้ำต่ำ/เกิน/ไม่มีน้ำ, ขวดผิดรูป)\nติดป้าย Sample ID และเก็บแยกกล่อง",
+  "downtime": false,
+  "movable": false,
+  "owner": "QA",
+  "minutes": 120,
+  "tools": "กล่อง/ถาดแยกตัวอย่าง, ป้าย Sample ID",
+  "record": "รายการ Sample ID ใน Challenge_Test",
+  "status": "Not started"
+ },
+ {
+  "id": "0.4",
+  "phase": "P0",
+  "activity": "ขออนุมัติ MOC / Risk Assessment / แผน LOTO",
+  "detail": "ยื่น Change Request/MOC, ประเมินความเสี่ยง, วางแผน LOTO, ขออนุมัติ QA และแจ้ง Production Planning ยืนยันช่วงเวลาหยุดเครื่อง",
+  "downtime": false,
+  "movable": false,
+  "owner": "ENG / QA",
+  "minutes": 60,
+  "tools": "แบบฟอร์ม MOC/Risk ของโรงงาน",
+  "record": "เลขที่ MOC และวันที่อนุมัติ",
+  "status": "Not started"
+ },
+ {
+  "id": "0.5",
+  "phase": "P0",
+  "activity": "Backup ระบบ Heuft ปัจจุบัน",
+  "detail": "สำรอง Type ทั้งหมดและค่า System ของ Heuft ไปยังที่เก็บตามที่โรงงานกำหนด (ดูวิธีใน Manual หรือสอบถาม Heuft Service) และบันทึก Software version",
+  "downtime": false,
+  "movable": false,
+  "owner": "MT / ENG",
+  "minutes": 30,
+  "tools": "USB / Network drive ตามนโยบาย IT",
+  "record": "ชื่อไฟล์ Backup + ที่เก็บ + วันที่",
+  "status": "Not started"
+ },
+ {
+  "id": "0.6",
+  "phase": "P0",
+  "activity": "เตรียมค่า Parameter ล่วงหน้า (Template)",
+  "detail": "เลือก Type เดิมที่ใกล้เคียง SKU ใหม่ที่สุด คัดลอกค่าลงช่อง \"Template\" ในชีต Parameters แล้วคำนวณค่าเริ่มต้นของ SKU ใหม่ (ความสูง, ระดับน้ำ, ตำแหน่ง window) ให้พร้อมกรอก",
+  "downtime": false,
+  "movable": false,
+  "owner": "ENG",
+  "minutes": 60,
+  "tools": "Parameters, ข้อมูล Type เดิม",
+  "record": "Parameters ส่วน B มีค่าเริ่มต้นครบ",
+  "status": "Not started"
+ },
+ {
+  "id": "0.7",
+  "phase": "P0",
+  "activity": "เตรียมอุปกรณ์ / ชิ้นส่วน",
+  "detail": "Format part / Guide / Spacer, เครื่องมือวัด (เวอร์เนียร์/สเกล/ตลับเมตร), ชุดทำความสะอาด, Spare part (หลอดไฟ/Sensor), ป้ายและอุปกรณ์ LOTO",
+  "downtime": false,
+  "movable": false,
+  "owner": "MT",
+  "minutes": 60,
+  "tools": "ตามรายการใน Checklist",
+  "record": "Checklist ข้อ 5.x เป็น OK",
+  "status": "Not started"
+ },
+ {
+  "id": "0.8",
+  "phase": "P0",
+  "activity": "ประสานทีมและ Heuft Service",
+  "detail": "ยืนยันทีมงานทุกบทบาท (PD / MT / QA / ENG) และผู้ติดต่อ Heuft (on-site หรือ remote) พร้อม Toolbox talk",
+  "downtime": false,
+  "movable": false,
+  "owner": "ENG",
+  "minutes": 30,
+  "tools": "รายชื่อทีม, เบอร์ติดต่อ Heuft",
+  "record": "Checklist ข้อ 6.x เป็น OK",
+  "status": "Not started"
+ },
+ {
+  "id": "0.9",
+  "phase": "P0",
+  "activity": "Go / No-Go Meeting",
+  "detail": "ตรวจ Checklist ทุกข้อต้องเป็น OK (หรือ N/A) ก่อนเริ่มหยุดเครื่อง ถ้ามี Pending/NG ให้เลื่อนหรือแก้ก่อน",
+  "downtime": false,
+  "movable": false,
+  "owner": "ENG / QA / PD",
+  "minutes": 30,
+  "tools": "ชีต Checklist",
+  "record": "ผล GO / NO-GO ใน Checklist",
+  "status": "Not started"
+ },
+ {
+  "id": "1.1",
+  "phase": "P1",
+  "activity": "หยุดไลน์และระบายขวด",
+  "detail": "แจ้ง Production หยุดไลน์ตามแผน, ระบายขวดที่ค้างในโซน Inspection และ Reject bin ออกให้หมด, บันทึกยอดผลิต/Reject ก่อนหยุด",
+  "downtime": true,
+  "movable": false,
+  "owner": "PD",
+  "minutes": 20,
+  "tools": "-",
+  "record": "เวลาเริ่มหยุดเครื่อง (T0)",
+  "status": "Not started"
+ },
+ {
+  "id": "1.2",
+  "phase": "P1",
+  "activity": "LOTO / Safe state",
+  "detail": "ทำ LOTO ตามมาตรฐานโรงงานและคำเตือนใน Manual (ไฟฟ้า, แหล่งกำเนิดแสง, ความถี่สูงในชุดตรวจ)",
+  "downtime": true,
+  "movable": false,
+  "owner": "MT",
+  "minutes": 10,
+  "tools": "อุปกรณ์ LOTO, PPE",
+  "record": "ลงชื่อ LOTO",
+  "status": "Not started"
+ },
+ {
+  "id": "1.3",
+  "phase": "P1",
+  "activity": "Backup As-found",
+  "detail": "ถ้ามีการแก้ไขหลัง Backup ใน 0.5 ให้ Backup ซ้ำ และถ่ายภาพ/Screenshot ค่าเดิม (As-found) ของ Type ที่ใกล้เคียง",
+  "downtime": true,
+  "movable": true,
+  "owner": "ENG",
+  "minutes": 10,
+  "tools": "USB / Network drive",
+  "record": "ไฟล์ Backup As-found",
+  "status": "Not started"
+ },
+ {
+  "id": "1.4",
+  "phase": "P1",
+  "activity": "ตรวจสภาพ / ทำความสะอาดชุดตรวจ",
+  "detail": "ตรวจสภาพและทำความสะอาดเลนส์/หน้าต่างกล้อง, ชุดไฟ, Sensor ตรวจขวด, Encoder และชุด Reject (ลม/Pusher) — เปลี่ยนชิ้นส่วนที่เสื่อมสภาพ",
+  "downtime": true,
+  "movable": false,
+  "owner": "MT",
+  "minutes": 30,
+  "tools": "ชุดทำความสะอาด, Spare part",
+  "record": "บันทึกสภาพก่อน/หลัง และชิ้นส่วนที่เปลี่ยน",
+  "status": "Not started"
+ },
+ {
+  "id": "2.1",
+  "phase": "P2",
+  "activity": "ปรับตำแหน่ง Inspection unit และ Guide",
+  "detail": "ปรับความสูง/ตำแหน่ง Inspection unit (ตรวจฝา, ตรวจระดับน้ำ/ขวด) และ Guide rail/ความกว้าง Conveyor ตามค่า Spec ใน Parameters ส่วน A; ล็อกตำแหน่งและบันทึกค่าที่ปรับจริง",
+  "downtime": true,
+  "movable": false,
+  "owner": "MT / ENG",
+  "minutes": 45,
+  "tools": "ประแจ, เวอร์เนียร์/ไม้วัด, Format part",
+  "record": "ค่าตำแหน่งจริงในช่อง Remark ของ Parameters",
+  "status": "Not started"
+ },
+ {
+  "id": "2.2",
+  "phase": "P2",
+  "activity": "ปรับ Sensor trigger / ไฟ / Shield",
+  "detail": "ตรวจ/ปรับตำแหน่ง Sensor trigger ขวด, มุมและระยะไฟ, Shield กันแสงภายนอก; ตรวจว่าตำแหน่งขวดในมุมมองสม่ำเสมอ",
+  "downtime": true,
+  "movable": false,
+  "owner": "MT",
+  "minutes": 30,
+  "tools": "เครื่องมือปรับ, Shield",
+  "record": "ภาพ/สัญญาณตรวจนิ่ง ไม่แกว่ง",
+  "status": "Not started"
+ },
+ {
+  "id": "2.3",
+  "phase": "P2",
+  "activity": "ตรวจ Encoder / ระยะ Reject",
+  "detail": "ตรวจ Encoder/Tracking และวัดระยะจากจุดตรวจถึงชุด Reject เพื่อนำไปตั้งค่า Reject delay ใน 3.6",
+  "downtime": true,
+  "movable": false,
+  "owner": "MT / ENG",
+  "minutes": 15,
+  "tools": "ตลับเมตร",
+  "record": "ระยะจุดตรวจ→Reject (mm)",
+  "status": "Not started"
+ },
+ {
+  "id": "2.4",
+  "phase": "P2",
+  "activity": "คืน LOTO / Power-up / ตรวจ Alarm",
+  "detail": "ถอด LOTO ตามขั้นตอน, เปิดระบบ Heuft, ตรวจว่าไม่มี Alarm/Fault และ Conveyor ปลอดภัยพร้อมทดสอบ",
+  "downtime": true,
+  "movable": false,
+  "owner": "MT",
+  "minutes": 15,
+  "tools": "-",
+  "record": "ไม่มี Alarm/Fault ค้าง",
+  "status": "Not started"
+ },
+ {
+  "id": "3.1",
+  "phase": "P3",
+  "activity": "สร้าง Type ใหม่ (copy จาก Template)",
+  "detail": "Log in ด้วยสิทธิ์ที่กำหนด, เลือก Type ที่ใกล้เคียงเป็น Template แล้วคัดลอกเป็น Type ใหม่ ตั้งชื่อ/เลขตามรหัส SKU (ชื่อเมนูอาจต่างตามรุ่น/Version) *ถ้า Heuft รองรับ ทำล่วงหน้านอกช่วงหยุดเครื่องได้ — ยืนยันกับ Heuft Service",
+  "downtime": true,
+  "movable": true,
+  "owner": "ENG",
+  "minutes": 15,
+  "tools": "Manual Heuft",
+  "record": "Type No./ชื่อที่สร้าง",
+  "status": "Not started"
+ },
+ {
+  "id": "3.2",
+  "phase": "P3",
+  "activity": "กรอกข้อมูลพื้นฐานของ Type",
+  "detail": "กรอกขนาด/ความสูงขวด-ฝา, ความเร็วไลน์, ตำแหน่ง/ระยะ Trigger ตาม Parameters ส่วน A และค่า Template ที่เตรียมไว้ (0.6) *ทำล่วงหน้าได้เช่นเดียวกับ 3.1 ถ้าระบบรองรับ",
+  "downtime": true,
+  "movable": true,
+  "owner": "ENG",
+  "minutes": 20,
+  "tools": "Parameters",
+  "record": "ค่าใน Parameters ส่วน A/B ตรงกับในเครื่อง",
+  "status": "Not started"
+ },
+ {
+  "id": "3.3",
+  "phase": "P3",
+  "activity": "Teach-in ด้วยขวด Good",
+  "detail": "วิ่งขวด Good ที่ความเร็วต่ำให้ระบบ Teach-in; ตรวจภาพ/สัญญาณของแต่ละ Unit ว่าชัดและสม่ำเสมอ ปรับ Exposure/ไฟ/ตำแหน่งหากจำเป็น",
+  "downtime": true,
+  "movable": false,
+  "owner": "ENG / HS",
+  "minutes": 40,
+  "tools": "ขวด Good (แนะนำ ≥ 30 ชุด)",
+  "record": "จำนวนและความเร็วที่ใช้ Teach-in",
+  "status": "Not started"
+ },
+ {
+  "id": "3.4",
+  "phase": "P3",
+  "activity": "Setup Function ตรวจฝา",
+  "detail": "ตั้งค่าทีละ Function: (a) Cap presence (b) Cap height / Skew (c) Tamper band/ring (d) Color/Type (ถ้าใช้) — กำหนด Inspection window, Threshold, Tolerance แล้วทดลองกับตัวอย่าง Good/Defect ทันทีทีละ Function",
+  "downtime": true,
+  "movable": false,
+  "owner": "ENG / HS",
+  "minutes": 90,
+  "tools": "ตัวอย่าง Good/Defect (ฝา)",
+  "record": "ค่าที่ตั้งใน Parameters ส่วน B",
+  "status": "Not started"
+ },
+ {
+  "id": "3.5",
+  "phase": "P3",
+  "activity": "Setup Function ตรวจขวด / ระดับน้ำ",
+  "detail": "ตั้งค่า: (a) Fill level (b) Bottle height / Contour / Deformation (ถ้าใช้) — กำหนด Window, ระดับ Nominal, Tolerance สูง/ต่ำ แล้วทดลองกับตัวอย่าง",
+  "downtime": true,
+  "movable": false,
+  "owner": "ENG / HS",
+  "minutes": 60,
+  "tools": "ตัวอย่าง Good/Defect (ขวด, ระดับน้ำ)",
+  "record": "ค่าที่ตั้งใน Parameters ส่วน B",
+  "status": "Not started"
+ },
+ {
+  "id": "3.6",
+  "phase": "P3",
+  "activity": "ตั้งค่า Reject",
+  "detail": "ตั้ง Reject delay (ตามระยะจาก 2.3), Duration, แรงดัน/แรง Pusher, Reject confirmation, Consecutive reject limit (แจ้งเตือน/หยุดไลน์) และตรวจ Statistic/Counter",
+  "downtime": true,
+  "movable": false,
+  "owner": "ENG / MT",
+  "minutes": 30,
+  "tools": "Parameters ส่วน B (Reject)",
+  "record": "ค่า Reject ใน Parameters",
+  "status": "Not started"
+ },
+ {
+  "id": "3.7",
+  "phase": "P3",
+  "activity": "ตั้งค่า Interface PLC / HMI ไลน์",
+  "detail": "ตั้ง Type number mapping, สัญญาณ Type-change/Ready/Alarm กับ PLC; ทดสอบเปลี่ยน Type จากหน้า HMI ไลน์",
+  "downtime": true,
+  "movable": false,
+  "owner": "ENG",
+  "minutes": 30,
+  "tools": "รายการ I/O ของไลน์",
+  "record": "ผลทดสอบ Type-change = OK",
+  "status": "Not started"
+ },
+ {
+  "id": "3.8",
+  "phase": "P3",
+  "activity": "Save Type และ Backup",
+  "detail": "Save Type ใหม่และ Backup ทันที เพื่อกันค่าหายก่อนเริ่มทดสอบ",
+  "downtime": true,
+  "movable": false,
+  "owner": "ENG",
+  "minutes": 10,
+  "tools": "USB / Network drive",
+  "record": "ชื่อไฟล์ Backup หลัง Setup",
+  "status": "Not started"
+ },
+ {
+  "id": "4.1",
+  "phase": "P4",
+  "activity": "ทดสอบขวด Good (Low speed)",
+  "detail": "วิ่งขวด Good ที่ความเร็วต่ำ (แนะนำ ≥ 100 ชุด ครอบคลุมทุก lot/cavity) นับ False reject และเทียบเกณฑ์ที่ QA กำหนด",
+  "downtime": true,
+  "movable": false,
+  "owner": "QA / ENG",
+  "minutes": 20,
+  "tools": "ขวด Good",
+  "record": "Challenge_Test ตารางที่ 1",
+  "status": "Not started"
+ },
+ {
+  "id": "4.2",
+  "phase": "P4",
+  "activity": "Challenge Test ด้วยตัวอย่าง Defect (Low speed)",
+  "detail": "วิ่งตัวอย่าง Defect แต่ละชนิดซ้ำหลายรอบ (แนะนำ ≥ 10 รอบ/ชนิด และสลับตำแหน่งตัวอย่างบนสายพาน) บันทึกจำนวนที่ตรวจพบ และยืนยันว่าตัวอย่างลง Reject bin จริง",
+  "downtime": true,
+  "movable": false,
+  "owner": "QA / ENG",
+  "minutes": 45,
+  "tools": "ตัวอย่าง Defect (ติด Sample ID)",
+  "record": "Challenge_Test ตารางที่ 2 (Low speed)",
+  "status": "Not started"
+ },
+ {
+  "id": "4.3",
+  "phase": "P4",
+  "activity": "ปรับ Threshold / Tolerance และทดสอบซ้ำ",
+  "detail": "(ทำเมื่อไม่ผ่านเกณฑ์) ปรับ Threshold/Tolerance/Window ใน 3.4–3.5 แล้วทดสอบซ้ำ 4.1–4.2 จนผ่าน — 40 นาทีเป็นเวลา Allowance ปรับตามหน้างาน",
+  "downtime": true,
+  "movable": false,
+  "owner": "ENG / HS",
+  "minutes": 40,
+  "tools": "Parameters",
+  "record": "ค่าที่แก้ไข + เหตุผล (Sign_off: Issue log)",
+  "status": "Not started"
+ },
+ {
+  "id": "4.4",
+  "phase": "P4",
+  "activity": "ทดสอบที่ความเร็วผลิตจริง",
+  "detail": "เร่งความเร็วถึงความเร็วผลิตจริง ทดสอบ Good และ Defect ซ้ำ (บันทึกคอลัมน์ Nominal)",
+  "downtime": true,
+  "movable": false,
+  "owner": "QA / ENG",
+  "minutes": 30,
+  "tools": "ตัวอย่าง Good/Defect",
+  "record": "Challenge_Test ตารางที่ 1–2 (Nominal)",
+  "status": "Not started"
+ },
+ {
+  "id": "4.5",
+  "phase": "P4",
+  "activity": "ทดสอบ Fail-safe ของ Reject",
+  "detail": "ทดสอบ Reject confirmation, Reject bin เต็ม, Consecutive reject limit, Alarm/หยุดไลน์ตามที่ตั้งไว้",
+  "downtime": true,
+  "movable": false,
+  "owner": "ENG / MT",
+  "minutes": 20,
+  "tools": "-",
+  "record": "ผลใน Challenge_Test (หมายเหตุ) / Issue log",
+  "status": "Not started"
+ },
+ {
+  "id": "4.6",
+  "phase": "P4",
+  "activity": "Production Trial",
+  "detail": "วิ่งสินค้าจริง 30–60 นาที ตรวจ False reject %, Reject count, Alarm และให้ QA สุ่มตรวจชิ้นที่ถูก Reject",
+  "downtime": true,
+  "movable": false,
+  "owner": "QA / PD",
+  "minutes": 45,
+  "tools": "สินค้าจริง",
+  "record": "Challenge_Test ตารางที่ 1 (Trial)",
+  "status": "Not started"
+ },
+ {
+  "id": "5.1",
+  "phase": "P5",
+  "activity": "Final Save / Backup / ล็อกค่า",
+  "detail": "Save/Backup Type สุดท้าย (ระบุชื่อไฟล์/วันที่), พิมพ์/บันทึกพารามิเตอร์, ล็อกสิทธิ์แก้ไข/รหัสผ่านตามระดับที่กำหนด",
+  "downtime": true,
+  "movable": false,
+  "owner": "ENG",
+  "minutes": 15,
+  "tools": "USB / Network drive",
+  "record": "ชื่อไฟล์ Final + วันที่",
+  "status": "Not started"
+ },
+ {
+  "id": "5.2",
+  "phase": "P5",
+  "activity": "QA Sign-off และ Release",
+  "detail": "QA ตรวจผลทดสอบและลงนามในชีต Sign_off แล้ว Release เข้าสู่การผลิต",
+  "downtime": true,
+  "movable": false,
+  "owner": "QA / ENG / PD",
+  "minutes": 15,
+  "tools": "ชีต Sign_off",
+  "record": "ลายเซ็น + เวลา Release",
+  "status": "Not started"
+ },
+ {
+  "id": "5.3",
+  "phase": "P5",
+  "activity": "อัปเดตเอกสาร",
+  "detail": "อัปเดต Type list, SOP/WI, ใบ Parameter และปิด MOC (ทำหลัง Release ได้)",
+  "downtime": false,
+  "movable": false,
+  "owner": "ENG",
+  "minutes": 30,
+  "tools": "-",
+  "record": "เอกสารฉบับล่าสุด",
+  "status": "Not started"
+ },
+ {
+  "id": "5.4",
+  "phase": "P5",
+  "activity": "อบรม Operator / QA",
+  "detail": "อธิบายการดู Reject, การเก็บตัวอย่าง Reject, อาการผิดปกติและช่องทางแจ้ง",
+  "downtime": false,
+  "movable": false,
+  "owner": "ENG / QA",
+  "minutes": 20,
+  "tools": "-",
+  "record": "รายชื่อผู้เข้าอบรม",
+  "status": "Not started"
+ },
+ {
+  "id": "5.5",
+  "phase": "P5",
+  "activity": "ติดตามผล 3 วันแรก",
+  "detail": "ติดตาม False reject %, Reject count, Alarm (3 วันแรกหรือตามที่ QA กำหนด) — ถ้าจะปรับค่า ให้ผ่านกระบวนการ Change control",
+  "downtime": false,
+  "movable": false,
+  "owner": "ENG",
+  "minutes": 60,
+  "tools": "รายงาน Reject ของ Heuft",
+  "record": "สรุปผลการติดตาม",
+  "status": "Not started"
+ }
+];
+const DATA_DATE = '18 ต.ค. 2569';
+
+const PHASES = {
+    P0: { short: '0 เตรียมล่วงหน้า', name: '0. เตรียมล่วงหน้า', color: '#9AA0A6' },
+    P1: { short: '1 หยุดเครื่อง/Safety', name: '1. หยุดเครื่อง / Safety / Backup', color: '#E8845A' },
+    P2: { short: '2 Mechanical', name: '2. ปรับ Mechanical / Hardware', color: '#E6B422' },
+    P3: { short: '3 Setup Heuft', name: '3. Setup Program ใน Heuft', color: '#4C7FBF' },
+    P4: { short: '4 ทดสอบ', name: '4. ทดสอบ / Verification', color: '#5BA366' },
+    P5: { short: '5 Sign-off', name: '5. Sign-off / ส่งมอบ / ติดตามผล', color: '#8C6FC4' }
+};
+const STATUSES = ['Not started', 'In progress', 'Done', 'N/A'];
+const STATUS_COLORS = { 'Not started': '#adb5bd', 'In progress': '#f0ad4e', 'Done': '#28a745', 'N/A': '#dee2e6' };
+const OWNER_ORDER = ['PD', 'MT', 'QA', 'ENG', 'HS'];
+
+function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function fmtHours(min) { return (min / 60).toFixed(1); }
+function fmtClock(min) { const h = Math.floor(min / 60), m = Math.round(min % 60); return h + ':' + String(m).padStart(2, '0'); }
+function owners(row) { return String(row.owner).split('/').map(s => s.trim()).filter(Boolean); }
+function statusClass(s) { return s === 'N/A' ? 'NA' : s.replace(' ', '-'); }
+
+class Dashboard {
+    constructor(data) {
+        this.raw = data;
+        this.filtered = data;
+        this.charts = {};
+        this.sort = { field: 'seq', dir: 'asc' };
+        this.expanded = new Set();
+        this.hasChart = typeof Chart !== 'undefined';
+        this.computeTimeline();
+        this.init();
+    }
+
+    computeTimeline() {
+        let t = 0;
+        this.raw.forEach((r, i) => {
+            r.seq = i;
+            if (r.downtime) { r.start = t; t += r.minutes; r.end = t; } else { r.start = r.end = null; }
+        });
+        this.planMinutes = t;
+        this.planMovable = this.raw.filter(r => r.downtime && r.movable).reduce((a, r) => a + r.minutes, 0);
+    }
+
+    init() {
+        document.getElementById('data-date').textContent = DATA_DATE;
+        this.setupFilters();
+        if (!this.hasChart) document.getElementById('chart-banner').style.display = 'block';
+        this.applyFilters(true);
+    }
+
+    setupFilters() {
+        const phaseSel = document.getElementById('f-phase');
+        Object.keys(PHASES).forEach(k => phaseSel.add(new Option(PHASES[k].name, k)));
+        const ownerSel = document.getElementById('f-owner');
+        const found = new Set(); this.raw.forEach(r => owners(r).forEach(o => found.add(o)));
+        [...OWNER_ORDER.filter(o => found.has(o)), ...[...found].filter(o => !OWNER_ORDER.includes(o)).sort()]
+            .forEach(o => ownerSel.add(new Option(o, o)));
+        const stSel = document.getElementById('f-status');
+        STATUSES.forEach(s => stSel.add(new Option(s, s)));
+        ['f-phase', 'f-owner', 'f-dt', 'f-status'].forEach(id =>
+            document.getElementById(id).addEventListener('change', () => this.applyFilters()));
+        document.getElementById('f-base').addEventListener('input', () => this.renderKPIs());
+        document.getElementById('btn-reset').addEventListener('click', () => {
+            ['f-phase', 'f-owner', 'f-dt', 'f-status'].forEach(id => document.getElementById(id).value = 'all');
+            this.applyFilters();
+        });
+        document.getElementById('btn-csv').addEventListener('click', () => this.exportCSV());
+        const tc = document.getElementById('table-container');
+        tc.addEventListener('click', e => {
+            const th = e.target.closest('th[data-field]');
+            if (th) { this.sortBy(th.dataset.field); return; }
+            if (e.target.closest('select')) return;
+            const tr = e.target.closest('tr.main');
+            if (tr) {
+                const id = tr.dataset.id;
+                this.expanded.has(id) ? this.expanded.delete(id) : this.expanded.add(id);
+                this.renderTable();
+            }
+        });
+        tc.addEventListener('change', e => {
+            const sel = e.target.closest('select.status');
+            if (sel) this.setStatus(sel.dataset.id, sel.value);
+        });
+    }
+
+    getFilters() {
+        const v = id => document.getElementById(id).value;
+        return { phase: v('f-phase'), owner: v('f-owner'), dt: v('f-dt'), status: v('f-status') };
+    }
+
+    applyFilters(first) {
+        const f = this.getFilters();
+        this.filtered = this.raw.filter(r => {
+            if (f.phase !== 'all' && r.phase !== f.phase) return false;
+            if (f.owner !== 'all' && !owners(r).includes(f.owner)) return false;
+            if (f.dt === 'yes' && !r.downtime) return false;
+            if (f.dt === 'no' && r.downtime) return false;
+            if (f.status !== 'all' && r.status !== f.status) return false;
+            return true;
+        });
+        this.renderKPIs();
+        if (first) this.createCharts(); else this.updateCharts();
+        this.renderTable();
+    }
+
+    setStatus(id, value) {
+        const row = this.raw.find(r => r.id === id);
+        if (row) row.status = value;
+        this.applyFilters();
+    }
+
+    renderKPIs() {
+        const d = this.filtered;
+        const downRows = d.filter(r => r.downtime);
+        const downMin = downRows.reduce((a, r) => a + r.minutes, 0);
+        const allMin = d.reduce((a, r) => a + r.minutes, 0);
+        const done = d.filter(r => r.status === 'Done').length;
+        const movRows = downRows.filter(r => r.movable);
+        const movMin = movRows.reduce((a, r) => a + r.minutes, 0);
+        const set = (id, t) => document.getElementById(id).textContent = t;
+
+        set('kpi-down', fmtHours(downMin) + ' ชม.');
+        set('kpi-down-sub', downRows.length + ' Step ช่วงหยุดเครื่อง · ทุก Step รวม ' + allMin + ' นาที');
+        set('kpi-prog', d.length ? Math.round(done / d.length * 100) + '%' : '–');
+        set('kpi-prog-sub', done + ' / ' + d.length + ' Step');
+        set('kpi-mov', movMin + ' นาที');
+        set('kpi-mov-sub', movRows.length + ' Step (ถ้า Heuft รองรับ — ต้องยืนยันกับ Heuft Service)');
+
+        const base = parseFloat(document.getElementById('f-base').value) || 0;
+        const plan = this.planMinutes / 60, planPre = (this.planMinutes - this.planMovable) / 60;
+        const redEl = document.getElementById('kpi-red');
+        const subEl = document.getElementById('kpi-red-sub');
+        if (base > 0) {
+            const redPre = (base - planPre) / base * 100, redNo = (base - plan) / base * 100;
+            redEl.textContent = redPre.toFixed(1) + '%';
+            subEl.className = 'kpi-change ' + (redPre >= 0 ? 'positive' : 'negative');
+            subEl.textContent = planPre.toFixed(1) + ' ชม. เมื่อย้ายงานได้ · ' + redNo.toFixed(1) + '% ถ้าไม่ย้าย (' + plan.toFixed(1) + ' ชม.) · เทียบ ' + base + ' ชม. (แผนเต็ม ไม่ขึ้นกับตัวกรอง)';
+        } else {
+            redEl.textContent = '–'; subEl.className = 'kpi-change'; subEl.textContent = 'กรอก Downtime ปัจจุบันให้มากกว่า 0';
+        }
+    }
+
+    // ---- chart data builders
+    ganttData() {
+        const rows = this.filtered.filter(r => r.downtime);
+        return {
+            rows,
+            labels: rows.map(r => r.id + '  ' + (r.activity.length > 34 ? r.activity.slice(0, 33) + '…' : r.activity)),
+            data: rows.map(r => [r.start, r.end]),
+            colors: rows.map(r => PHASES[r.phase].color)
+        };
+    }
+    phaseData() {
+        const keys = Object.keys(PHASES);
+        const sum = (k, dt) => this.filtered.filter(r => r.phase === k && r.downtime === dt).reduce((a, r) => a + r.minutes, 0);
+        return { labels: keys.map(k => PHASES[k].short), down: keys.map(k => sum(k, true)), other: keys.map(k => sum(k, false)) };
+    }
+    ownerData() {
+        const map = {};
+        this.filtered.forEach(r => owners(r).forEach(o => map[o] = (map[o] || 0) + r.minutes));
+        const keys = Object.keys(map).sort((a, b) => map[b] - map[a]);
+        return { labels: keys, data: keys.map(k => map[k]) };
+    }
+    statusData() {
+        return { labels: STATUSES, data: STATUSES.map(s => this.filtered.filter(r => r.status === s).length) };
+    }
+    shareData() {
+        const keys = Object.keys(PHASES).filter(k => this.filtered.some(r => r.phase === k && r.downtime));
+        return {
+            labels: keys.map(k => PHASES[k].short),
+            data: keys.map(k => this.filtered.filter(r => r.phase === k && r.downtime).reduce((a, r) => a + r.minutes, 0)),
+            colors: keys.map(k => PHASES[k].color)
+        };
+    }
+
+    createCharts() {
+        if (!this.hasChart) return;
+        Chart.defaults.font.family = "-apple-system, 'Segoe UI', 'Noto Sans Thai', 'Sarabun', Tahoma, sans-serif";
+        const self = this;
+        const g = this.ganttData();
+        this.charts.gantt = new Chart(document.getElementById('ch-gantt'), {
+            type: 'bar',
+            data: { labels: g.labels, datasets: [{ label: 'ช่วงเวลา', data: g.data, backgroundColor: g.colors, borderRadius: 3, borderSkipped: false, barPercentage: 0.8 }] },
+            options: {
+                indexAxis: 'y', responsive: true, maintainAspectRatio: false, animation: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { callbacks: {
+                        title: items => { const r = self.ganttData().rows[items[0].dataIndex]; return r ? r.id + ' ' + r.activity : ''; },
+                        label: ctx => { const r = self.ganttData().rows[ctx.dataIndex]; return r ? fmtClock(r.start) + ' → ' + fmtClock(r.end) + '  (' + r.minutes + ' นาที, ' + r.owner + ')' : ''; }
+                    } }
+                },
+                scales: {
+                    x: { type: 'linear', min: 0, suggestedMax: Math.ceil(this.planMinutes / 60) * 60, title: { display: true, text: 'ชั่วโมงนับจากเริ่มหยุดเครื่อง' },
+                         ticks: { stepSize: 60, callback: v => (v / 60) + ' ชม.' } },
+                    y: { reverse: true, grid: { display: false }, ticks: { autoSkip: false, font: { size: 11 } } }
+                }
+            }
+        });
+        const p = this.phaseData();
+        this.charts.phase = new Chart(document.getElementById('ch-phase'), {
+            type: 'bar',
+            data: { labels: p.labels, datasets: [
+                { label: 'ช่วงหยุดเครื่อง', data: p.down, backgroundColor: '#6f5bb5', borderRadius: 3 },
+                { label: 'นอกช่วงหยุดเครื่อง', data: p.other, backgroundColor: '#adb5bd', borderRadius: 3 }
+            ] },
+            options: {
+                responsive: true, maintainAspectRatio: false, animation: false,
+                plugins: { legend: { position: 'top', labels: { usePointStyle: true } },
+                    tooltip: { callbacks: { label: c => c.dataset.label + ': ' + c.parsed.y + ' นาที (' + fmtHours(c.parsed.y) + ' ชม.)' } } },
+                scales: { x: { stacked: true, grid: { display: false }, ticks: { font: { size: 11 } } }, y: { stacked: true, beginAtZero: true, title: { display: true, text: 'นาที' } } }
+            }
+        });
+        const o = this.ownerData();
+        this.charts.owner = new Chart(document.getElementById('ch-owner'), {
+            type: 'bar',
+            data: { labels: o.labels, datasets: [{ label: 'นาที', data: o.data, backgroundColor: '#4C7FBFCC', borderColor: '#4C7FBF', borderWidth: 1, borderRadius: 4 }] },
+            options: {
+                responsive: true, maintainAspectRatio: false, animation: false,
+                plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => c.parsed.y + ' นาที (' + fmtHours(c.parsed.y) + ' ชม.)' } } },
+                scales: { x: { grid: { display: false } }, y: { beginAtZero: true, title: { display: true, text: 'นาที' } } }
+            }
+        });
+        const s = this.statusData();
+        this.charts.status = new Chart(document.getElementById('ch-status'), {
+            type: 'doughnut',
+            data: { labels: s.labels, datasets: [{ data: s.data, backgroundColor: STATUSES.map(x => STATUS_COLORS[x]), borderColor: '#ffffff', borderWidth: 2 }] },
+            options: {
+                responsive: true, maintainAspectRatio: false, animation: false, cutout: '60%',
+                plugins: { legend: { position: 'right', labels: { usePointStyle: true, padding: 15 } },
+                    tooltip: { callbacks: { label: c => { const t = c.dataset.data.reduce((a, b) => a + b, 0); return c.label + ': ' + c.parsed + ' Step (' + (t ? (c.parsed / t * 100).toFixed(1) : 0) + '%)'; } } } }
+            }
+        });
+        const sh = this.shareData();
+        this.charts.share = new Chart(document.getElementById('ch-share'), {
+            type: 'doughnut',
+            data: { labels: sh.labels, datasets: [{ data: sh.data, backgroundColor: sh.colors, borderColor: '#ffffff', borderWidth: 2 }] },
+            options: {
+                responsive: true, maintainAspectRatio: false, animation: false, cutout: '60%',
+                plugins: { legend: { position: 'right', labels: { usePointStyle: true, padding: 15 } },
+                    tooltip: { callbacks: { label: c => { const t = c.dataset.data.reduce((a, b) => a + b, 0); return c.label + ': ' + c.parsed + ' นาที (' + (t ? (c.parsed / t * 100).toFixed(1) : 0) + '%)'; } } } }
+            }
+        });
+    }
+
+    updateCharts() {
+        if (!this.hasChart) return;
+        const g = this.ganttData();
+        const c = this.charts;
+        c.gantt.data.labels = g.labels;
+        c.gantt.data.datasets[0].data = g.data;
+        c.gantt.data.datasets[0].backgroundColor = g.colors;
+        c.gantt.update('none');
+        document.getElementById('empty-gantt').style.display = g.rows.length ? 'none' : 'block';
+        const p = this.phaseData();
+        c.phase.data.datasets[0].data = p.down; c.phase.data.datasets[1].data = p.other; c.phase.update('none');
+        const o = this.ownerData();
+        c.owner.data.labels = o.labels; c.owner.data.datasets[0].data = o.data; c.owner.update('none');
+        const s = this.statusData();
+        c.status.data.datasets[0].data = s.data; c.status.update('none');
+        const sh = this.shareData();
+        c.share.data.labels = sh.labels; c.share.data.datasets[0].data = sh.data; c.share.data.datasets[0].backgroundColor = sh.colors; c.share.update('none');
+    }
+
+    // ---- table
+    sortBy(field) {
+        if (this.sort.field === field) this.sort.dir = this.sort.dir === 'asc' ? 'desc' : 'asc';
+        else this.sort = { field, dir: 'asc' };
+        this.renderTable();
+    }
+
+    renderTable() {
+        const cols = [
+            { field: 'seq', label: 'Step', cls: '' },
+            { field: 'phase', label: 'Phase', cls: '' },
+            { field: 'activity', label: 'กิจกรรม', cls: '' },
+            { field: 'owner', label: 'ผู้รับผิดชอบ', cls: '' },
+            { field: 'downtime', label: 'หยุดเครื่อง?', cls: 'ctr' },
+            { field: 'movable', label: 'ย้ายก่อนได้?', cls: 'ctr' },
+            { field: 'minutes', label: 'นาที', cls: 'num' },
+            { field: 'status', label: 'Status', cls: '' }
+        ];
+        const { field, dir } = this.sort;
+        const rows = [...this.filtered].sort((a, b) => {
+            let x = a[field], y = b[field];
+            if (typeof x === 'string') { const c = x.localeCompare(y, 'th'); return dir === 'asc' ? c : -c; }
+            const c = x < y ? -1 : x > y ? 1 : 0; return dir === 'asc' ? c : -c;
+        });
+        let html = '<table class="data-table"><thead><tr>';
+        cols.forEach(c => {
+            const arrow = c.field === field ? (dir === 'asc' ? ' ▲' : ' ▼') : '';
+            html += `<th data-field="${c.field}" class="${c.cls}">${c.label}${arrow}</th>`;
+        });
+        html += '</tr></thead><tbody>';
+        rows.forEach(r => {
+            const ph = PHASES[r.phase];
+            const open = this.expanded.has(r.id);
+            html += `<tr class="main" data-id="${esc(r.id)}">`;
+            html += `<td>${open ? '▾' : '▸'} ${esc(r.id)}</td>`;
+            html += `<td><span class="chip" style="background:${ph.color}">${esc(r.phase)}</span></td>`;
+            html += `<td>${esc(r.activity)}</td>`;
+            html += `<td>${esc(r.owner)}</td>`;
+            html += `<td class="ctr">${r.downtime ? '<span class="yes">Y</span>' : 'N'}</td>`;
+            html += `<td class="ctr">${r.movable ? 'ได้' : '-'}</td>`;
+            html += `<td class="num">${r.minutes}</td>`;
+            html += `<td><select class="status ${statusClass(r.status)}" data-id="${esc(r.id)}" aria-label="Status ของ Step ${esc(r.id)}">` +
+                STATUSES.map(s => `<option value="${esc(s)}"${s === r.status ? ' selected' : ''}>${esc(s)}</option>`).join('') + '</select></td>';
+            html += '</tr>';
+            if (open) {
+                html += `<tr class="detail"><td colspan="8"><dl>
+                    <dt>รายละเอียด</dt><dd>${esc(r.detail).replace(/\n/g, '<br>')}</dd>
+                    <dt>อุปกรณ์ / เอกสาร</dt><dd>${esc(r.tools)}</dd>
+                    <dt>Record / Check point</dt><dd>${esc(r.record)}</dd>
+                    ${r.downtime ? `<dt>ช่วงเวลาตามแผน</dt><dd>${fmtClock(r.start)} → ${fmtClock(r.end)} นับจากเริ่มหยุดเครื่อง</dd>` : ''}
+                </dl></td></tr>`;
+            }
+        });
+        html += '</tbody></table>';
+        document.getElementById('table-container').innerHTML = html;
+        document.getElementById('tbl-count').textContent = 'แสดง ' + rows.length + ' จาก ' + this.raw.length + ' Step — คลิกแถวเพื่อดูรายละเอียด, คลิกหัวคอลัมน์เพื่อเรียง';
+    }
+
+    exportCSV() {
+        const q = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+        const head = ['Step', 'Phase', 'Activity', 'Owner', 'Downtime', 'Movable', 'Minutes', 'Status'];
+        const lines = [head.map(q).join(',')];
+        this.filtered.forEach(r => lines.push([r.id, r.phase, r.activity, r.owner, r.downtime ? 'Y' : 'N', r.movable ? 'ได้' : '-', r.minutes, r.status].map(q).join(',')));
+        const blob = new Blob(['\ufeff' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob); a.download = 'heuft_setup_steps.csv';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    }
+}
+
+const dashboard = new Dashboard(DATA);
+</script>
+</body>
+</html>
